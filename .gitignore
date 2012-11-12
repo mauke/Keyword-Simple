@@ -1,0 +1,15 @@
+MANIFEST.bak
+MYMETA.*
+MYMETA.yml
+Makefile
+Makefile.old
+Simple.bs
+Simple.c
+Simple.o
+Simple.i
+Simple.s
+blib/
+pm_to_blib
+*.tar.gz
+/Keyword-Simple-*/
+untracked/
