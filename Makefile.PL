@@ -27,6 +27,15 @@ WriteMakefile(
         'B::Hooks::EndOfScope' => 0,
     },
     MIN_PERL_VERSION => '5.12.0',
+    META_MERGE => {
+        resources => {
+            repository => {
+                url => 'git://github.com/mauke/Keyword-Simple.git',
+                web => 'https://github.com/mauke/Keyword-Simple',
+                type => 'git',
+            },
+        },
+    },
     depend => { Makefile => '$(VERSION_FROM)' },
     dist                => { COMPRESS => 'gzip -9f', SUFFIX => 'gz', },
     clean               => { FILES => 'Keyword-Simple-*' },
