@@ -69,7 +69,37 @@ Keyword::Simple - define new keywords in pure Perl
 
 =head1 DESCRIPTION
 
-XXX write me
+Warning: This module is still new and experimental. The API may change in
+future versions. The code may be buggy.
+
+This module lets you implement new keywords in pure Perl. To do this, you need
+to write a module and call
+L<C<Keyword::Simple::define>|/Keyword::Simple::define> in your C<import>
+method. Any keywords defined this way will be available in the lexical scope
+that's currently being compiled.
+
+=head2 Functions
+
+=over
+
+=item C<Keyword::Simple::define>
+
+Takes two arguments, the name of a keyword and a coderef. Injects the keyword
+in the lexical scope currently being compiled. For every occurrence of the
+keyword, your coderef will be called with one argument: A reference to a scalar
+holding the rest of the source code (following the keyword).
+
+You can modify this scalar in any way you like and after your coderef returns,
+perl will continue parsing from that scalar as if its contents had been the
+real source code in the first place.
+
+=item C<Keyword::Simple::undefine>
+
+Takes one argument, the name of a keyword. Disables that keyword in the lexical
+scope that's currently being compiled. You can call this from your C<unimport>
+method to make the C<no Foo;> syntax work.
+
+=back
 
 =head1 BUGS AND LIMITATIONS
 
@@ -93,8 +123,6 @@ and the rest of the file is unchanged.
 
 This also means your new keywords can only occur at the beginning of a
 statement, not embedded in an expression.
-
-There is no documentation.
 
 There are barely any tests.
 
