@@ -116,6 +116,31 @@ static long kw_index(pTHX_ const char *kw_ptr, STRLEN kw_len) {
 	return -1;
 }
 
+static I32 playback(pTHX_ int idx, SV *buf, int n) {
+	char *ptr;
+	STRLEN len, d;
+	SV *sv = FILTER_DATA(idx);
+
+	ptr = SvPV(sv, len);
+	if (!len) {
+		return 0;
+	}
+
+	if (!n) {
+		char *nl = memchr(ptr, '\n', len);
+		d = nl ? nl - ptr + 1 : len;
+	} else {
+		d = n < 0 ? INT_MAX : n;
+		if (d > len) {
+			d = len;
+		}
+	}
+
+	sv_catpvn(buf, ptr, d);
+	sv_chop(sv, ptr + d);
+	return 1;
+}
+
 static void total_recall(pTHX_ I32 n) {
 	SV *sv, *cb;
 	AV *meta;
@@ -135,13 +160,14 @@ static void total_recall(pTHX_ I32 n) {
 	}
 
 	/* sluuuuuurrrrp */
+
 	sv_setpvn(sv, PL_parser->bufptr, PL_parser->bufend - PL_parser->bufptr);
 	lex_unstuff(PL_parser->bufend); /* you saw nothing */
 
 	if (!PL_rsfp_filters) {
+		/* because FILTER_READ fails with filters=null but DTRT with filters=[] */
 		PL_rsfp_filters = newAV();
 	}
-
 	while (FILTER_READ(0, sv, 4096) > 0)
 		;
 
@@ -155,18 +181,14 @@ static void total_recall(pTHX_ I32 n) {
 	{ /* $sv .= "\n" */
 		char *p;
 		STRLEN n;
-		p = SvPV_force(sv, n);
-		SvGROW(sv, n + 2);
+		SvPV_force(sv, n);
+		p = SvGROW(sv, n + 2);
 		p[n] = '\n';
 		p[n + 1] = '\0';
 		SvCUR_set(sv, n + 1);
 	}
 
-	/* ceci n'est pas un filtre */
-	av_unshift(PL_rsfp_filters, 1);
-	SvLEN_set(sv, SvCUR(sv));
-	SvCUR_set(sv, 0);
-	av_store(PL_rsfp_filters, 0, SvREFCNT_inc_simple_NN(sv));
+	filter_add(playback, SvREFCNT_inc_simple_NN(sv));
 
 	PUTBACK;
 	FREETMPS;
