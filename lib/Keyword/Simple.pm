@@ -9,7 +9,7 @@ use B::Hooks::EndOfScope;
 use XSLoader;
 BEGIN {
 	our $VERSION = '0.01';
-	XSLoader::load;
+	XSLoader::load __PACKAGE__, $VERSION;
 }
 
 # all shall burn
