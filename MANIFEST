@@ -7,4 +7,5 @@ Simple.xs
 lib/Keyword/Simple.pm
 t/00-load.t
 t/basic.t
+t/lineno.t
 t/pod.t

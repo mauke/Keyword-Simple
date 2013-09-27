@@ -182,6 +182,8 @@ static void total_recall(pTHX_ I32 n) {
 
 	filter_add(playback, SvREFCNT_inc_simple_NN(sv));
 
+	CopLINE_dec(PL_curcop);
+
 	PUTBACK;
 	FREETMPS;
 	LEAVE;
