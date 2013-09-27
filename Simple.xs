@@ -1,5 +1,5 @@
 /*
-Copyright 2012 Lukas Mai.
+Copyright 2012, 2013 Lukas Mai.
 
 This program is free software; you can redistribute it and/or modify it
 under the terms of either: the GNU General Public License as published
@@ -57,12 +57,6 @@ WARNINGS_ENABLE
 
 #define HAVE_PERL_VERSION(R, V, S) \
 	(PERL_REVISION > (R) || (PERL_REVISION == (R) && (PERL_VERSION > (V) || (PERL_VERSION == (V) && (PERL_SUBVERSION >= (S))))))
-
-#if HAVE_PERL_VERSION(5, 16, 0)
- #define IF_HAVE_PERL_5_16(YES, NO) YES
-#else
- #define IF_HAVE_PERL_5_16(YES, NO) NO
-#endif
 
 
 #define MY_PKG "Keyword::Simple"
@@ -128,7 +122,7 @@ static I32 playback(pTHX_ int idx, SV *buf, int n) {
 
 	if (!n) {
 		char *nl = memchr(ptr, '\n', len);
-		d = nl ? nl - ptr + 1 : len;
+		d = nl ? (STRLEN)(nl - ptr + 1) : len;
 	} else {
 		d = n < 0 ? INT_MAX : n;
 		if (d > len) {
@@ -144,8 +138,6 @@ static I32 playback(pTHX_ int idx, SV *buf, int n) {
 static void total_recall(pTHX_ I32 n) {
 	SV *sv, *cb;
 	AV *meta;
-	char *pv;
-	STRLEN pv_len;
 	dSP;
 
 	ENTER;

@@ -30,13 +30,13 @@ You can also look for information at:
     CPAN Ratings
         http://cpanratings.perl.org/d/Keyword-Simple
 
-    Search CPAN
-        http://search.cpan.org/dist/Keyword-Simple/
+    MetaCPAN
+        https://metacpan.org/module/Keyword::Simple
 
 
 COPYRIGHT AND LICENCE
 
-Copyright (C) 2012 Lukas Mai
+Copyright (C) 2012, 2013 Lukas Mai
 
 This program is free software; you can redistribute it and/or modify it
 under the terms of either: the GNU General Public License as published
