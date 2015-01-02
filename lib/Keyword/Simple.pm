@@ -1,6 +1,7 @@
 package Keyword::Simple;
 
 use v5.12.0;
+use strict;
 use warnings;
 
 use Carp qw(croak);
