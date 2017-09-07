@@ -1,5 +1,5 @@
 /*
-Copyright 2012, 2013 Lukas Mai.
+Copyright 2012, 2013, 2017 Lukas Mai.
 
 This program is free software; you can redistribute it and/or modify it
 under the terms of either: the GNU General Public License as published
@@ -9,10 +9,18 @@ See http://dev.perl.org/licenses/ for more information.
  */
 
 #ifdef __GNUC__
+ #if __GNUC__ >= 5
+  #define IF_HAVE_GCC_5(X) X
+ #endif
+
  #if (__GNUC__ == 4 && __GNUC_MINOR__ >= 6) || __GNUC__ >= 5
   #define PRAGMA_GCC_(X) _Pragma(#X)
   #define PRAGMA_GCC(X) PRAGMA_GCC_(GCC X)
  #endif
+#endif
+
+#ifndef IF_HAVE_GCC_5
+ #define IF_HAVE_GCC_5(X)
 #endif
 
 #ifndef PRAGMA_GCC
@@ -21,20 +29,20 @@ See http://dev.perl.org/licenses/ for more information.
 
 #ifdef DEVEL
  #define WARNINGS_RESET PRAGMA_GCC(diagnostic pop)
- #define WARNINGS_ENABLEW(X) PRAGMA_GCC(diagnostic warning #X)
+ #define WARNINGS_ENABLEW(X) PRAGMA_GCC(diagnostic error #X)
  #define WARNINGS_ENABLE \
     WARNINGS_ENABLEW(-Wall) \
     WARNINGS_ENABLEW(-Wextra) \
     WARNINGS_ENABLEW(-Wundef) \
-    /* WARNINGS_ENABLEW(-Wshadow) :-( */ \
+    WARNINGS_ENABLEW(-Wshadow) \
     WARNINGS_ENABLEW(-Wbad-function-cast) \
     WARNINGS_ENABLEW(-Wcast-align) \
     WARNINGS_ENABLEW(-Wwrite-strings) \
-    /* WARNINGS_ENABLEW(-Wnested-externs) wtf? */ \
     WARNINGS_ENABLEW(-Wstrict-prototypes) \
     WARNINGS_ENABLEW(-Wmissing-prototypes) \
     WARNINGS_ENABLEW(-Winline) \
-    WARNINGS_ENABLEW(-Wdisabled-optimization)
+    WARNINGS_ENABLEW(-Wdisabled-optimization) \
+    IF_HAVE_GCC_5(WARNINGS_ENABLEW(-Wnested-externs))
 
 #else
  #define WARNINGS_RESET
@@ -48,15 +56,14 @@ See http://dev.perl.org/licenses/ for more information.
 #include "XSUB.h"
 
 #include <string.h>
-#include <assert.h>
 #include <stdlib.h>
 
+#ifdef DEVEL
+#undef NDEBUG
+#endif
+#include <assert.h>
 
 WARNINGS_ENABLE
-
-
-#define HAVE_PERL_VERSION(R, V, S) \
-    (PERL_REVISION > (R) || (PERL_REVISION == (R) && (PERL_VERSION > (V) || (PERL_VERSION == (V) && (PERL_SUBVERSION >= (S))))))
 
 
 #define MY_PKG "Keyword::Simple"
@@ -135,7 +142,7 @@ static I32 playback(pTHX_ int idx, SV *buf, int n) {
     return 1;
 }
 
-static void total_recall(pTHX_ I32 n) {
+static void total_recall(pTHX_ I32 k) {
     SV *sv, *cb;
     AV *meta;
     dSP;
@@ -144,7 +151,7 @@ static void total_recall(pTHX_ I32 n) {
     SAVETMPS;
 
     meta = get_av(MY_PKG "::meta", GV_ADD);
-    cb = *av_fetch(meta, n, 0);
+    cb = *av_fetch(meta, k, 0);
 
     sv = sv_2mortal(newSVpvs(""));
     if (lex_bufutf8()) {
@@ -202,17 +209,19 @@ static int my_keyword_plugin(pTHX_ char *keyword_ptr, STRLEN keyword_len, OP **o
 }
 
 
+static void my_boot(pTHX) {
+    HV *const stash = gv_stashpvs(MY_PKG, GV_ADD);
+
+    newCONSTSUB(stash, "HINTK_KEYWORDS", newSVpvs(HINTK_KEYWORDS));
+
+    next_keyword_plugin = PL_keyword_plugin;
+    PL_keyword_plugin = my_keyword_plugin;
+}
+
 WARNINGS_RESET
 
 MODULE = Keyword::Simple   PACKAGE = Keyword::Simple
 PROTOTYPES: ENABLE
 
 BOOT:
-WARNINGS_ENABLE {
-    HV *const stash = gv_stashpvs(MY_PKG, GV_ADD);
-    /**/
-    newCONSTSUB(stash, "HINTK_KEYWORDS", newSVpvs(HINTK_KEYWORDS));
-    /**/
-    next_keyword_plugin = PL_keyword_plugin;
-    PL_keyword_plugin = my_keyword_plugin;
-} WARNINGS_RESET
+    my_boot(aTHX);
