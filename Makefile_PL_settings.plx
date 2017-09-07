@@ -10,14 +10,12 @@ return {
     BUILD_REQUIRES => {},
     TEST_REQUIRES => {
         'strict'     => 0,
-        'Dir::Self'  => 0,
         'Test::More' => 0,
     },
     PREREQ_PM => {
         'Carp'                 => 0,
         'XSLoader'             => 0,
         'warnings'             => 0,
-        'B::Hooks::EndOfScope' => 0,
     },
     DEVELOP_REQUIRES => {
         'Test::Pod' => 1.22,
