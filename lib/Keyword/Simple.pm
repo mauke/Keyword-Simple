@@ -8,32 +8,32 @@ use B::Hooks::EndOfScope;
 
 use XSLoader;
 BEGIN {
-	our $VERSION = '0.03';
-	XSLoader::load __PACKAGE__, $VERSION;
+    our $VERSION = '0.03';
+    XSLoader::load __PACKAGE__, $VERSION;
 }
 
 # all shall burn
 our @meta;
 
 sub define {
-	my ($kw, $sub) = @_;
-	$kw =~ /^\p{XIDS}\p{XIDC}*\z/ or croak "'$kw' doesn't look like an identifier";
-	ref($sub) eq 'CODE' or croak "'$sub' doesn't look like a coderef";
+    my ($kw, $sub) = @_;
+    $kw =~ /^\p{XIDS}\p{XIDC}*\z/ or croak "'$kw' doesn't look like an identifier";
+    ref($sub) eq 'CODE' or croak "'$sub' doesn't look like a coderef";
 
-	my $n = @meta;
-	push @meta, $sub;
+    my $n = @meta;
+    push @meta, $sub;
 
-	$^H{+HINTK_KEYWORDS} .= " $kw:$n";
-	on_scope_end {
-		delete $meta[$n];
-	};
+    $^H{+HINTK_KEYWORDS} .= " $kw:$n";
+    on_scope_end {
+        delete $meta[$n];
+    };
 }
 
 sub undefine {
-	my ($kw) = @_;
-	$kw =~ /^\p{XIDS}\p{XIDC}*\z/ or croak "'$kw' doesn't look like an identifier";
+    my ($kw) = @_;
+    $kw =~ /^\p{XIDS}\p{XIDC}*\z/ or croak "'$kw' doesn't look like an identifier";
 
-	$^H{+HINTK_KEYWORDS} .= " $kw:-";
+    $^H{+HINTK_KEYWORDS} .= " $kw:-";
 }
 
 'ok'
