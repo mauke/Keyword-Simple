@@ -4,7 +4,6 @@ use v5.12.0;
 use warnings;
 
 use Carp qw(croak);
-use B::Hooks::EndOfScope;
 
 use XSLoader;
 BEGIN {
@@ -12,28 +11,23 @@ BEGIN {
     XSLoader::load __PACKAGE__, $VERSION;
 }
 
-# all shall burn
-our @meta;
-
 sub define {
     my ($kw, $sub) = @_;
     $kw =~ /^\p{XIDS}\p{XIDC}*\z/ or croak "'$kw' doesn't look like an identifier";
     ref($sub) eq 'CODE' or croak "'$sub' doesn't look like a coderef";
 
-    my $n = @meta;
-    push @meta, $sub;
-
-    $^H{+HINTK_KEYWORDS} .= " $kw:$n";
-    on_scope_end {
-        delete $meta[$n];
-    };
+    my %keywords = %{$^H{+HINTK_KEYWORDS} // {}};
+    $keywords{$kw} = $sub;
+    $^H{+HINTK_KEYWORDS} = \%keywords;
 }
 
 sub undefine {
     my ($kw) = @_;
     $kw =~ /^\p{XIDS}\p{XIDC}*\z/ or croak "'$kw' doesn't look like an identifier";
 
-    $^H{+HINTK_KEYWORDS} .= " $kw:-";
+    my %keywords = %{$^H{+HINTK_KEYWORDS} // {}};
+    delete $keywords{$kw};
+    $^H{+HINTK_KEYWORDS} = \%keywords;
 }
 
 'ok'

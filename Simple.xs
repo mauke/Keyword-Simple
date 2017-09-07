@@ -63,6 +63,31 @@ See http://dev.perl.org/licenses/ for more information.
 #endif
 #include <assert.h>
 
+#ifndef STATIC_ASSERT_STMT
+ #if (defined(static_assert) || (defined(__cplusplus) && __cplusplus >= 201103L)) && (!defined(__IBMC__) || __IBMC__ >= 1210)
+ /* static_assert is a macro defined in <assert.h> in C11 or a compiler
+    builtin in C++11.  But IBM XL C V11 does not support _Static_assert, no
+    matter what <assert.h> says.
+ */
+ #  define STATIC_ASSERT_DECL(COND) static_assert(COND, #COND)
+ #else
+ /* We use a bit-field instead of an array because gcc accepts
+    'typedef char x[n]' where n is not a compile-time constant.
+    We want to enforce constantness.
+ */
+ #  define STATIC_ASSERT_2(COND, SUFFIX) \
+     typedef struct { \
+         unsigned int _static_assertion_failed_##SUFFIX : (COND) ? 1 : -1; \
+     } _static_assertion_failed_##SUFFIX PERL_UNUSED_DECL
+ #  define STATIC_ASSERT_1(COND, SUFFIX) STATIC_ASSERT_2(COND, SUFFIX)
+ #  define STATIC_ASSERT_DECL(COND)    STATIC_ASSERT_1(COND, __LINE__)
+ #endif
+ /* We need this wrapper even in C11 because 'case X: static_assert(...);' is an
+    error (static_assert is a declaration, and only statements can have labels).
+ */
+ #define STATIC_ASSERT_STMT(COND)      do { STATIC_ASSERT_DECL(COND); } while (0)
+#endif
+
 WARNINGS_ENABLE
 
 
@@ -77,44 +102,49 @@ WARNINGS_ENABLE
 
 static int (*next_keyword_plugin)(pTHX_ char *, STRLEN, OP **);
 
-static long kw_index(pTHX_ const char *kw_ptr, STRLEN kw_len) {
+static SV *kw_handler(pTHX_ const char *kw_ptr, STRLEN kw_len) {
     HV *hints;
-    SV *sv, **psv;
-    char *p, *pv;
-    STRLEN pv_len;
+    SV **psv, *sv, *sv2;
+    I32 kw_xlen;
+
+
+    /* don't bother doing anything fancy after a syntax error */
+    if (PL_parser && PL_parser->error_count) {
+        return NULL;
+    }
+
+    STATIC_ASSERT_STMT(~(STRLEN)0 > (U32)I32_MAX);
+    if (kw_len > (STRLEN)I32_MAX) {
+        return NULL;
+    }
 
     if (!(hints = GvHV(PL_hintgv))) {
-        return -1;
+        return NULL;
     }
+
     if (!(psv = hv_fetchs(hints, HINTK_KEYWORDS, 0))) {
-        return -1;
+        return NULL;
     }
+
     sv = *psv;
-
-    pv = SvPV(sv, pv_len);
-    if (pv_len < 4 || pv_len - 2 <= kw_len) {
-        return -1;
+    if (!(SvROK(sv) && (sv2 = SvRV(sv), SvTYPE(sv2) == SVt_PVHV))) {
+        croak("%s: internal error: $^H{'%s'} not a hashref: %"SVf, MY_PKG, HINTK_KEYWORDS, SVfARG(sv));
     }
 
-    for (
-        p = pv;
-        (p = strchr(p + 1, *kw_ptr)) &&
-        p < pv + pv_len - 1 - kw_len;
-    ) {
-        if (
-            p[-1] == ' ' &&
-            p[kw_len] == ':' &&
-            memcmp(kw_ptr, p, kw_len) == 0
-        ) {
-            if (p[kw_len + 1] == '-') {
-                return -1;
-            }
-            assert(p[kw_len + 1] >= '0' && p[kw_len + 1] <= '9');
-            return strtol(p + kw_len + 1, NULL, 10);
-        }
+    kw_xlen = kw_len;
+    if (lex_bufutf8()) {
+        kw_xlen = -kw_xlen;
+    }
+    if (!(psv = hv_fetch((HV *)sv2, kw_ptr, kw_xlen, 0))) {
+        return NULL;
     }
 
-    return -1;
+    sv = *psv;
+    if (!(SvROK(sv) && (sv2 = SvRV(sv), SvTYPE(sv2) == SVt_PVCV))) {
+        croak("%s: internal error: $^H{'%s'}{'%.*s'} not a coderef: %"SVf, MY_PKG, HINTK_KEYWORDS, (int)kw_len, kw_ptr, SVfARG(sv));
+    }
+
+    return sv2;
 }
 
 static I32 playback(pTHX_ int idx, SV *buf, int n) {
@@ -142,16 +172,12 @@ static I32 playback(pTHX_ int idx, SV *buf, int n) {
     return 1;
 }
 
-static void total_recall(pTHX_ I32 k) {
-    SV *sv, *cb;
-    AV *meta;
+static void total_recall(pTHX_ SV *cb) {
+    SV *sv;
     dSP;
 
     ENTER;
     SAVETMPS;
-
-    meta = get_av(MY_PKG "::meta", GV_ADD);
-    cb = *av_fetch(meta, k, 0);
 
     sv = sv_2mortal(newSVpvs(""));
     if (lex_bufutf8()) {
@@ -170,6 +196,7 @@ static void total_recall(pTHX_ I32 k) {
     while (FILTER_READ(0, sv, 4096) > 0)
         ;
 
+    //sv_dump(sv);
     PUSHMARK(SP);
     mXPUSHs(newRV_inc(sv));
     PUTBACK;
@@ -186,6 +213,7 @@ static void total_recall(pTHX_ I32 k) {
         p[n + 1] = '\0';
         SvCUR_set(sv, n + 1);
     }
+    //sv_dump(sv);
 
     filter_add(playback, SvREFCNT_inc_simple_NN(sv));
 
@@ -197,10 +225,10 @@ static void total_recall(pTHX_ I32 k) {
 }
 
 static int my_keyword_plugin(pTHX_ char *keyword_ptr, STRLEN keyword_len, OP **op_ptr) {
-    long n;
+    SV *cb;
 
-    if ((n = kw_index(aTHX_ keyword_ptr, keyword_len)) >= 0) {
-        total_recall(aTHX_ n);
+    if ((cb = kw_handler(aTHX_ keyword_ptr, keyword_len))) {
+        total_recall(aTHX_ cb);
         *op_ptr = newOP(OP_NULL, 0);
         return KEYWORD_PLUGIN_STMT;
     }
