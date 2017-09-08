@@ -83,6 +83,9 @@ and the rest of the file is unchanged.
 This also means your new keywords can only occur at the beginning of a
 statement, not embedded in an expression.
 
+Keywords in the replacement part of a `s//.../e` substitution aren't handled
+correctly and break parsing.
+
 There are barely any tests.
 
 # SUPPORT AND DOCUMENTATION
