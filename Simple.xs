@@ -63,6 +63,9 @@ See http://dev.perl.org/licenses/ for more information.
 #endif
 #include <assert.h>
 
+#define HAVE_PERL_VERSION(R, V, S) \
+    (PERL_REVISION > (R) || (PERL_REVISION == (R) && (PERL_VERSION > (V) || (PERL_VERSION == (V) && (PERL_SUBVERSION >= (S))))))
+
 #ifndef STATIC_ASSERT_STMT
  #if (defined(static_assert) || (defined(__cplusplus) && __cplusplus >= 201103L)) && (!defined(__IBMC__) || __IBMC__ >= 1210)
  /* static_assert is a macro defined in <assert.h> in C11 or a compiler
@@ -99,6 +102,15 @@ WARNINGS_ENABLE
 #ifndef PL_rsfp_filters
 #define PL_rsfp_filters (PL_parser->rsfp_filters)
 #endif
+
+#ifndef PL_parser_filtered
+ #if HAVE_PERL_VERSION(5, 15, 5)
+  #define PL_parser_filtered (PL_parser->filtered)
+ #else
+  #define PL_parser_filtered 0
+ #endif
+#endif
+
 
 static int (*next_keyword_plugin)(pTHX_ char *, STRLEN, OP **);
 
@@ -189,14 +201,15 @@ static void total_recall(pTHX_ SV *cb) {
     sv_setpvn(sv, PL_parser->bufptr, PL_parser->bufend - PL_parser->bufptr);
     lex_unstuff(PL_parser->bufend); /* you saw nothing */
 
-    if (!PL_rsfp_filters) {
-        /* because FILTER_READ fails with filters=null but DTRT with filters=[] */
-        PL_rsfp_filters = newAV();
+    if (PL_parser->rsfp || PL_parser_filtered) {
+        if (!PL_rsfp_filters) {
+            /* because FILTER_READ fails with filters=null but DTRT with filters=[] */
+            PL_rsfp_filters = newAV();
+        }
+        while (FILTER_READ(0, sv, 4096) > 0)
+            ;
     }
-    while (FILTER_READ(0, sv, 4096) > 0)
-        ;
 
-    //sv_dump(sv);
     PUSHMARK(SP);
     mXPUSHs(newRV_inc(sv));
     PUTBACK;
@@ -213,13 +226,14 @@ static void total_recall(pTHX_ SV *cb) {
         p[n + 1] = '\0';
         SvCUR_set(sv, n + 1);
     }
-    //sv_dump(sv);
 
-    filter_add(playback, SvREFCNT_inc_simple_NN(sv));
+    if (PL_parser->rsfp || PL_parser_filtered) {
+        filter_add(playback, SvREFCNT_inc_simple_NN(sv));
+        CopLINE_dec(PL_curcop);
+    } else {
+        lex_stuff_sv(sv, 0);
+    }
 
-    CopLINE_dec(PL_curcop);
-
-    PUTBACK;
     FREETMPS;
     LEAVE;
 }
