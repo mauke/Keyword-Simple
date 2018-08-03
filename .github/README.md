@@ -40,7 +40,8 @@ that's currently being compiled.
 
 - `Keyword::Simple::define`
 
-    Takes two arguments, the name of a keyword and a coderef. Injects the keyword
+    Takes three arguments, the name of a keyword, a coderef, and a boolean flag if
+    the result of the keyword handler is an expression. Injects the keyword
     in the lexical scope currently being compiled. For every occurrence of the
     keyword, your coderef will be called with one argument: A reference to a scalar
     holding the rest of the source code (following the keyword).
@@ -60,7 +61,7 @@ that's currently being compiled.
 This module depends on the [pluggable keyword](https://metacpan.org/pod/perlapi.html#PL_keyword_plugin)
 API introduced in perl 5.12. Older versions of perl are not supported.
 
-Every new keyword is actually a complete statement by itself. The parsing magic
+Every new keyword is actually a complete statement or an expression by itself. The parsing magic
 only happens afterwards. This means that e.g. the code in the ["SYNOPSIS"](#synopsis)
 actually does this:
 

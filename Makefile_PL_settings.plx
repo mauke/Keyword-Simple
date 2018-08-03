@@ -5,7 +5,7 @@ return {
     NAME   => 'Keyword::Simple',
     AUTHOR => q{Lukas Mai <l.mai@web.de>},
 
-    MIN_PERL_VERSION => '5.12.0',
+    MIN_PERL_VERSION => '5.14.0',
     CONFIGURE_REQUIRES => {},
     BUILD_REQUIRES => {},
     TEST_REQUIRES => {
