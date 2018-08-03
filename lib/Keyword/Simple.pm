@@ -1,6 +1,6 @@
 package Keyword::Simple;
 
-use v5.12.0;
+use v5.14.0;
 use warnings;
 our %kw;
 
@@ -102,7 +102,8 @@ method to make the C<no Foo;> syntax work.
 =head1 BUGS AND LIMITATIONS
 
 This module depends on the L<pluggable keyword|perlapi.html/PL_keyword_plugin>
-API introduced in perl 5.12. Older versions of perl are not supported.
+API introduced in perl 5.12. C<parse_> functions were introduced in 5.14.
+Older versions of perl are not supported.
 
 Every new keyword is actually a complete statement or an expression by itself. The parsing magic
 only happens afterwards. This means that e.g. the code in the L</SYNOPSIS>
