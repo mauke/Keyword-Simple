@@ -114,9 +114,10 @@ WARNINGS_ENABLE
 
 static int (*next_keyword_plugin)(pTHX_ char *, STRLEN, OP **);
 
-static SV *kw_handler(pTHX_ const char *kw_ptr, STRLEN kw_len) {
+static SV *kw_handler(pTHX_ const char *kw_ptr, STRLEN kw_len, int * is_expr) {
     HV *hints;
     SV **psv, *sv, *sv2;
+    AV *av;
     I32 kw_xlen;
 
 
@@ -152,9 +153,23 @@ static SV *kw_handler(pTHX_ const char *kw_ptr, STRLEN kw_len) {
     }
 
     sv = *psv;
-    if (!(SvROK(sv) && (sv2 = SvRV(sv), SvTYPE(sv2) == SVt_PVCV))) {
-        croak("%s: internal error: $^H{'%s'}{'%.*s'} not a coderef: %"SVf, MY_PKG, HINTK_KEYWORDS, (int)kw_len, kw_ptr, SVfARG(sv));
+    if (!(SvROK(sv) && (av = (AV*)SvRV(sv), SvTYPE((SV*)av) == SVt_PVAV))) {
+        croak("%s: internal error: $^H{'%s'}{'%.*s'} not an arrayref: %"SVf, MY_PKG, HINTK_KEYWORDS, (int)kw_len, kw_ptr, SVfARG(sv));
     }
+
+    if (av_len(av) != 1) {
+        croak("%s: internal error: $^H{'%s'}{'%.*s'} bad arrayref: %"SVf, MY_PKG, HINTK_KEYWORDS, (int)kw_len, kw_ptr, SVfARG(sv));
+    }
+
+    if ( !( psv = av_fetch(av, 0, 0))) {
+        croak("%s: internal error: $^H{'%s'}{'%.*s'} bad item #0: %"SVf, MY_PKG, HINTK_KEYWORDS, (int)kw_len, kw_ptr, SVfARG(sv));
+    }
+    sv2 = *psv;
+    
+    if ( !( psv = av_fetch(av, 1, 0))) {
+        croak("%s: internal error: $^H{'%s'}{'%.*s'} bad item #1: %"SVf, MY_PKG, HINTK_KEYWORDS, (int)kw_len, kw_ptr, SVfARG(sv));
+    }
+    *is_expr = SvIV(*psv);
 
     return sv2;
 }
@@ -240,11 +255,17 @@ static void total_recall(pTHX_ SV *cb) {
 
 static int my_keyword_plugin(pTHX_ char *keyword_ptr, STRLEN keyword_len, OP **op_ptr) {
     SV *cb;
+    int is_expr;
 
-    if ((cb = kw_handler(aTHX_ keyword_ptr, keyword_len))) {
+    if ((cb = kw_handler(aTHX_ keyword_ptr, keyword_len, &is_expr))) {
         total_recall(aTHX_ cb);
-        *op_ptr = newOP(OP_NULL, 0);
-        return KEYWORD_PLUGIN_STMT;
+	if ( is_expr ) {
+            *op_ptr = parse_fullexpr(0);
+            return KEYWORD_PLUGIN_EXPR;
+	} else {
+            *op_ptr = newOP(OP_NULL, 0);
+            return KEYWORD_PLUGIN_STMT;
+	}
     }
 
     return next_keyword_plugin(aTHX_ keyword_ptr, keyword_len, op_ptr);

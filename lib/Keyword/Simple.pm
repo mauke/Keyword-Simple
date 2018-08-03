@@ -2,6 +2,7 @@ package Keyword::Simple;
 
 use v5.12.0;
 use warnings;
+our %kw;
 
 use Carp qw(croak);
 
@@ -12,12 +13,12 @@ BEGIN {
 }
 
 sub define {
-    my ($kw, $sub) = @_;
+    my ($kw, $sub, $expression) = @_;
     $kw =~ /^\p{XIDS}\p{XIDC}*\z/ or croak "'$kw' doesn't look like an identifier";
     ref($sub) eq 'CODE' or croak "'$sub' doesn't look like a coderef";
 
     my %keywords = %{$^H{+HINTK_KEYWORDS} // {}};
-    $keywords{$kw} = $sub;
+    $keywords{$kw} = [ $sub, $expression ? 1 : 0 ];
     $^H{+HINTK_KEYWORDS} = \%keywords;
 }
 
@@ -80,7 +81,8 @@ that's currently being compiled.
 
 =item C<Keyword::Simple::define>
 
-Takes two arguments, the name of a keyword and a coderef. Injects the keyword
+Takes three arguments, the name of a keyword, a coderef, and a boolean flag if
+the result of the keyword handler is an expression. Injects the keyword
 in the lexical scope currently being compiled. For every occurrence of the
 keyword, your coderef will be called with one argument: A reference to a scalar
 holding the rest of the source code (following the keyword).
@@ -102,7 +104,7 @@ method to make the C<no Foo;> syntax work.
 This module depends on the L<pluggable keyword|perlapi.html/PL_keyword_plugin>
 API introduced in perl 5.12. Older versions of perl are not supported.
 
-Every new keyword is actually a complete statement by itself. The parsing magic
+Every new keyword is actually a complete statement or an expression by itself. The parsing magic
 only happens afterwards. This means that e.g. the code in the L</SYNOPSIS>
 actually does this:
 
